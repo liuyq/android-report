@@ -19,7 +19,7 @@ function printUsage(){
     # ./kernelreport.sh 5.10 --exact-version-1 5.10.40 --no-check-kernel-version
 
     echo "Please run like this:"
-    echo -e "\t${f_name} kernel_ver [--exact-version-1 exact_ver1 [--exact-version-2 exact_ver2 [--reverse-build-order]]] [--no-check-kernel-version]"
+    echo -e "\t${f_name} kernel_ver [--exact-version-1 exact_ver1 [--exact-version-2 exact_ver2 [--reverse-build-order]]] [--no-check-kernel-version] [--ignore-jobs-failure]"
 }
 
 function parseArgs(){
@@ -31,6 +31,10 @@ function parseArgs(){
                 ;;
             X--reverse-build-order)
                 reverse_build_order=true
+                shift
+                ;;
+            X--ignore-jobs-failure)
+                ignore_jobs_failure=true
                 shift
                 ;;
             X--exact-version-1)
@@ -84,6 +88,10 @@ if ${reverse_build_order}; then
     opt_reverse_build_order="--reverse-build-order"
 fi
 
+if ${ignore_jobs_failure}; then
+    opt_ignore_jobs_failure="--ignore-jobs-failure"
+fi
+
 if [ -z "${exact_ver1}" ]; then
     f_report="/tmp/kernelreport-${ker_version}.txt"
 elif [ -z "${exact_ver2}" ]; then
@@ -103,7 +111,14 @@ if [ -e "${dir_parent}/../workspace-python3/bin/python" ]; then
 fi
 
 wget -c https://raw.githubusercontent.com/tom-gall/android-qa-classifier-data/master/flakey.txt -O /tmp/flakey.txt
-"${PYTHON}" ${dir_parent}/manage.py kernelreport ${opt_no_check_ker_ver} "${ker_version}" ${f_report} /tmp/flakey.txt ${opt_exact_ver1} ${opt_exact_ver2} ${opt_reverse_build_order}
+"${PYTHON}" ${dir_parent}/manage.py kernelreport \
+    ${opt_no_check_ker_ver} \
+    "${ker_version}" \
+    ${f_report} \
+    /tmp/flakey.txt \
+    ${opt_exact_ver1} ${opt_exact_ver2} ${opt_reverse_build_order} \
+    ${opt_ignore_jobs_failure}
+
 if [ -f "${f_report}.scribble" ]; then
     mv -f "${f_report}" "${f_report}.successprojects"
     cat "${f_report}.errorprojects" >> "${f_report}"

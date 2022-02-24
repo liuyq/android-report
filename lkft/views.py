@@ -674,6 +674,11 @@ def get_lkft_build_status(build, jobs):
                 job_last_fetched_timestamp = qa_report_api.get_aware_datetime_from_str(job.get('fetched_at'))
                 if job_last_fetched_timestamp > last_fetched_timestamp:
                     last_fetched_timestamp = job_last_fetched_timestamp
+        elif job.get('job_status') == "Complete":
+            if job.get('last_fetch_attempt') is not None:
+                job_last_fetched_timestamp = qa_report_api.get_aware_datetime_from_str(job.get('last_fetch_attempt'))
+                if job_last_fetched_timestamp > last_fetched_timestamp:
+                    last_fetched_timestamp = job_last_fetched_timestamp
         else:
             is_inprogress = True
             break

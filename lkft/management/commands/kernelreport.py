@@ -162,7 +162,7 @@ def classifyTest(flakeDicts, testcasename, hardware, kernel, android):
     return 'I'
 
 
-def find_best_two_runs(builds, project_name, project, exact_ver1="", exact_ver2="", reverse_build_order=False, no_check_kernel_version=False):
+def find_best_two_runs(builds, project_name, project, exact_ver1="", exact_ver2="", reverse_build_order=False, no_check_kernel_version=False, ignore_jobs_failure=False):
     goodruns = []
     bailaftertwo = 0
     number_of_build_with_jobs = 0
@@ -241,7 +241,7 @@ def find_best_two_runs(builds, project_name, project, exact_ver1="", exact_ver2=
             jobfailure = job['failure']
             # for some failed cases, numbers are not set for the job
             job_numbers = job.get('numbers', None)
-            if jobstatus == 'Complete' and jobfailure is None and \
+            if jobstatus == 'Complete' and (ignore_jobs_failure or jobfailure is None) and \
                     job_numbers is not None and job_numbers.get('finished_successfully'):
                 total_jobs_finished_number = total_jobs_finished_number + 1
 
@@ -554,6 +554,11 @@ class Command(BaseCommand):
                 dest="reverse_build_order",
                 action='store_true',
                 required=False)
+        parser.add_argument("--ignore-jobs-failure",
+                help="Used when we know that the failures is related to the squad, not failure with the lava jobs",
+                dest="ignore_jobs_failure",
+                action='store_true',
+                required=False)
 
 
     def handle(self, *args, **options):
@@ -567,6 +572,7 @@ class Command(BaseCommand):
         opt_exact_ver1 = options.get('exact_version_1')
         opt_exact_ver2 = options.get('exact_version_2')
         reverse_build_order = options.get('reverse_build_order')
+        ignore_jobs_failure = options.get('ignore_jobs_failure')
 
         # map kernel to all available kernel, board, OS combos that match
         work = []
@@ -612,7 +618,8 @@ class Command(BaseCommand):
             project_name = project.get('name')
             goodruns = find_best_two_runs(builds, project_name, project,
                                           exact_ver1=opt_exact_ver1, exact_ver2=opt_exact_ver2, reverse_build_order=reverse_build_order,
-                                          no_check_kernel_version=no_check_kernel_version)
+                                          no_check_kernel_version=no_check_kernel_version,
+                                          ignore_jobs_failure=ignore_jobs_failure)
             if len(goodruns) < 2 :
                 print("\nNOTE: project " + project_name+ " did not have 2 good runs\n")
                 if opt_exact_ver1 is not None:
