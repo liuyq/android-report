@@ -400,8 +400,8 @@ def print_androidresultheader(output, project_info, run, priorrun):
     output.write("    " + project_info['OS'] + "/" + project_info['hardware'] + " - " )
     output.write("Current:" + run['version'] + "  Prior:" + priorrun['version']+"\n")
 
-    build_metadata = get_build_metadata(build_metadata_url=run.get('metadata'))
-    prior_build_metadata = get_build_metadata(build_metadata_url=priorrun.get('metadata'))
+    build_metadata = get_build_metadata(build_metadata_url=run.get('metadata'), build_jobs=run.get('jobs'))
+    prior_build_metadata = get_build_metadata(build_metadata_url=priorrun.get('metadata'), build_jobs=priorrun.get('jobs'))
 
 
     def get_last_of_metadata(metadata):

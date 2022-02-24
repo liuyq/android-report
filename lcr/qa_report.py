@@ -311,6 +311,18 @@ class LAVAApi(RESTFullApi):
         results = yaml.safe_load(r.content)
         return results
 
+    def get_job_metatata(self, job_id=None, lava_config=None):
+        # https://lkft.validation.linaro.org/scheduler/job/4433307/definition/plain
+        url_result_yaml = "https://%s/scheduler/job/%s/definition/plain?user=%s&token=%s" % (self.domain, job_id, self.username, self.api_token)
+        r = self.call_with_full_url(request_url=url_result_yaml, returnResponse=True)
+        if not r.ok and r.status_code == 404:
+            raise UrlNotFoundException(r, url=url_result_yaml)
+        elif not r.ok or r.status_code != 200:
+            raise Exception(r.url, r.reason, r.status_code)
+
+        results = yaml.safe_load(r.content)
+        return results.get('metadata')
+
     def cancel_job(self, lava_job_id=None):
         ## e.g. http://validation.linaro.org/api/v0.2/jobs/2345786/cancel/
         api_url = '/jobs/%s/cancel/' % lava_job_id

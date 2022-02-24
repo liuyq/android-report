@@ -31,6 +31,7 @@ from django.utils.timesince import timesince
 from lcr.settings import FILES_DIR, LAVA_SERVERS, BUGZILLA_API_KEY, BUILD_WITH_JOBS_NUMBER, BUILD_WITH_BENCHMARK_JOBS_NUMBER, DB_USE_POSTGRES
 from lcr.settings import QA_REPORT, QA_REPORT_DEFAULT, JENKINS, JENKINS_DEFAULT, GITLAB, GITLAB_DEFAULT
 from lcr.settings import RESTRICTED_PROJECTS
+from lcr.settings import GET_ATTACHMENT_URL_FROM_LAVA, GET_BUILD_METADATA_FROM_LAVA
 from lcr.irc import IRC
 
 from lcr import qa_report, bugzilla
@@ -293,8 +294,17 @@ def download_attachments_save_result(jobs=[], fetch_latest=False):
 
             attachment_url = job.get('attachment_url')
             if not attachment_url:
-                logger.info("No attachment for job: %s %s" % (job_url, job.get('name')))
-                continue
+                if GET_ATTACHMENT_URL_FROM_LAVA:
+                    # try to get the attachment_url from lava if it's not in the squad build metadata
+                    job_results = qa_report.LAVAApi(lava_config=job.get('lava_config')).get_job_results(job_id=job_id)
+                    for test_case in job_results:
+                        if test_case.get('name') == "test-attachment":
+                            attachment_metadata = test_case.get('metadata')
+                            if attachment_metadata and attachment_metadata.get('reference'):
+                                attachment_url = attachment_metadata.get('reference')
+                if not attachment_url:
+                    logger.info("No attachment for job: %s %s" % (job_url, job.get('name')))
+                    continue
 
             if not os.path.exists(result_file_path):
                 (temp_fd, temp_path) = tempfile.mkstemp(suffix='.tar.xz', text=False)
@@ -1721,11 +1731,24 @@ def get_cts_vts_version_from(cts_vts_url, default_cts_vts_version=""):
     return cts_vts_url.split('/')[-2]
 
 
-def get_build_metadata(build_metadata_url=None, project_name=None):
+def get_build_metadata(build_metadata_url=None, project_name=None, build_jobs=[]):
     build_metadata = {}
     if build_metadata_url is None:
         return build_metadata
 
+    metadata_items = {
+                        'android_url': 'android.url',
+                        'android_version': 'android.version',
+                        'vendor_fingerprint': 'android.build.vendor.fingerprint',
+                        'gsi_fingerprint': 'android.build.gsi.fingerprint',
+                        'gsi_url': 'android.build.gsi.url',
+                        'build_url': "build-url",
+                        'toolchain': 'toolchain',
+                        'vts_url': 'vts-url',
+                        'vts_version': 'vts-version',
+                        'cts_url': 'cts-url',
+                        'cts_version': 'cts-version',
+                       }
     build_metadata_raw = qa_report_api.get_build_meta_with_url(build_metadata_url)
     build_metadata['android_url'] = build_metadata_raw.get('android.url')
     if project_name:
@@ -1753,6 +1776,22 @@ def get_build_metadata(build_metadata_url=None, project_name=None):
     build_metadata['vts_version'] = get_cts_vts_version_from(build_metadata_raw.get('vts-url'), default_cts_vts_version=build_metadata_raw.get('vts-version'))
     build_metadata['cts_url'] = build_metadata_raw.get('cts-url')
     build_metadata['cts_version'] = get_cts_vts_version_from(build_metadata_raw.get('cts-url'), default_cts_vts_version=build_metadata_raw.get('cts-version'))
+
+    if GET_BUILD_METADATA_FROM_LAVA:
+        jobs_metadata_cache={}
+        for item in metadata_items.keys():
+            if build_metadata.get(item) is not None:
+                continue
+
+            for job in build_jobs:
+                if jobs_metadata_cache.get(job.get('external_url')):
+                    job_metadata = jobs_metadata_cache.get(job.get('external_url'))
+                else:
+                    job_metadata = qa_report.LAVAApi(lava_config=job.get('lava_config')).get_job_metatata(job_id=job.get('job_id'))
+                    jobs_metadata_cache[job.get('external_url')] = job_metadata
+
+                if job_metadata.get(metadata_items.get(item)) is not None and len(job_metadata.get(metadata_items.get(item))) > 0:
+                    build_metadata[item] = job_metadata.get(metadata_items.get(item))
 
     return build_metadata
 
@@ -1905,7 +1944,7 @@ def list_jobs(request):
     final_jobs = sorted(jobs_to_be_checked, key=get_job_name)
     failed_jobs = sorted(resubmitted_duplicated_jobs, key=get_job_name)
 
-    build_metadata = get_build_metadata(build_metadata_url=build.get('metadata'))
+    build_metadata = get_build_metadata(build_metadata_url=build.get('metadata'), build_jobs=final_jobs)
     build_metadata['android_version'] = android_version
 
     return render(request, 'lkft-jobs.html',
