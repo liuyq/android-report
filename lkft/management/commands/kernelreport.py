@@ -478,12 +478,12 @@ def report_results(output, run, regressions, combo, priorrun, flakes, antiregres
     regressions_failure = [ failure for failure in regressions if failure.get('result') == 'fail' ]
     regressions_assumption = [ failure for failure in regressions if failure.get('result') == 'ASSUMPTION_FAILURE' ]
 
-    def print_regressions(output, regressions, flakes, project_info):
+    def print_regressions(output, target_regressions, flakes, project_info):
         if 'baseOS' in project_info: 
             OS = project_info['baseOS']
         else:
             OS = project_info['OS']
-        for regression in regressions_failure:
+        for regression in target_regressions:
             # pdb.set_trace()
             testtype = classifyTest(flakes, regression['test_name'], project_info['hardware'], project_info['kern'], OS)
             output.write("        " + testtype + " " + regression['module_name'] +"." + regression['test_name'] + "\n")
